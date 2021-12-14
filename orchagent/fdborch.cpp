@@ -1102,8 +1102,11 @@ void FdbOrch::updateVlanMember(const VlanMemberUpdate& update)
     {
         swss::Port vlan = update.vlan;
         swss::Port port = update.member;
-        flushFDBEntries(port.m_bridge_port_id, vlan.m_vlan_info.vlan_oid);
-        notifyObserversFDBFlush(port, vlan.m_vlan_info.vlan_oid);
+        if(port.m_type != Port::TUNNEL)
+        {
+            flushFdbByPortVlan(port.m_alias, vlan.m_alias, 1);
+            notifyObserversFDBFlush(port, vlan.m_vlan_info.vlan_oid);
+        }
         return;
     }
 
@@ -1159,7 +1162,18 @@ bool FdbOrch::addFdbEntry(const FdbEntry& entry, const string& port_name,
                 vlan.m_vlan_info.vlan_id, fdbData});
         return true;
     }
+    if (port.m_type == Port::TUNNEL)
+    {
+        sai_port_oper_status_t opr_status;
+        VxlanTunnelOrch* tunnel_orch = gDirectory.get<VxlanTunnelOrch*>();
 
+        tunnel_orch->getDbTunnelOperStatus(port.m_alias, opr_status);
+        if (opr_status == SAI_PORT_OPER_STATUS_DOWN)
+        {
+            SWSS_LOG_NOTICE("wait for tunnel %s up", port_name.c_str());
+            return false;
+        }
+    }
     /* Assign end point IP only in SIP tunnel scenario since Port + IP address
        needed to uniquely identify Vlan member */
     if (!tunnel_orch->isDipTunnelsSupported())

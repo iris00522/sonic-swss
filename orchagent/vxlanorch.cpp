@@ -299,7 +299,7 @@ create_tunnel(
           num_map++;
       }
     }
-      
+
     attr.id = SAI_TUNNEL_ATTR_DECAP_MAPPERS;
     attr.value.objlist.count = num_map;
     attr.value.objlist.list = map_list;
@@ -1874,6 +1874,35 @@ void VxlanTunnelOrch::updateDbTunnelOperStatus(string tunnel_portname,
     m_stateVxlanTable.set(tunnel_name, fvVector);
 }
 
+void VxlanTunnelOrch::getDbTunnelOperStatus(string tunnel_portname,
+                                               sai_port_oper_status_t& status)
+{
+    vector<FieldValueTuple> tuples;
+    std::string tunnel_name;
+
+    getTunnelNameFromPort(tunnel_portname, tunnel_name);
+    bool exist = m_stateVxlanTable.get(tunnel_name, tuples);
+    string operStatus;
+    if (exist)
+    {
+        for (auto i : tuples)
+        {
+            if (fvField(i) == "operstatus")
+            {
+                operStatus = fvValue(i);
+            }
+        }
+    }
+    if (operStatus == "up")
+    {
+        status = SAI_PORT_OPER_STATUS_UP;
+    }
+    else
+    {
+        status = SAI_PORT_OPER_STATUS_DOWN;
+    }
+}
+
 void VxlanTunnelOrch::addRemoveStateTableEntry(string tunnel_name, 
                                            IpAddress& sip, IpAddress& dip, 
                                            tunnel_creation_src_t src, bool add)
@@ -2122,7 +2151,7 @@ bool VxlanTunnelMapOrch::delOperation(const Request& request)
 
     SWSS_LOG_NOTICE("vni count = %d",tunnel_obj->vlan_vrf_vni_count);
 
-    // Update the map count and if this is the last mapping entry 
+    // Update the map count and if this is the last mapping entry
     // make SAI calls to delete the tunnel and tunnel termination objects.
 
     if (tunnel_obj->vlan_vrf_vni_count == 0)
@@ -2133,8 +2162,8 @@ bool VxlanTunnelMapOrch::delOperation(const Request& request)
       bool ret;
 
       ret = gPortsOrch->getPort(port_tunnel_name, tunnelPort);
-      // If there are Dynamic DIP Tunnels referring to this SIP Tunnel 
-      // then mark it as pending for delete. 
+      // If there are Dynamic DIP Tunnels referring to this SIP Tunnel
+      // then mark it as pending for delete.
       if (!tunnel_obj->isTunnelReferenced())
       {
           if (!ret)
@@ -2640,7 +2669,7 @@ bool EvpnNvoOrch::delOperation(const Request& request)
 
     auto nvo_name = request.getKeyString(0);
 
-    if (!source_vtep_ptr) 
+    if (!source_vtep_ptr)
     {
         SWSS_LOG_WARN("NVO Delete failed as VTEP Ptr is NULL");
         return true;
